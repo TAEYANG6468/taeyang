@@ -1,37 +1,32 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Rhythm Game - Test OK</title>
+  <meta charset="UTF-8" />
+  <title>Sugar Kane Rhythm Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     html, body {
       margin: 0;
+      padding: 0;
       background: black;
       overflow: hidden;
     }
-    #ytbg {
+    video {
       position: fixed;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       width: 100vw;
       height: 100vh;
+      object-fit: cover;
       z-index: -1;
-      pointer-events: none;
-      filter: grayscale(1) contrast(1.3) brightness(0.8);
+      filter: grayscale(1) contrast(1.2) brightness(0.8);
     }
     canvas {
       position: absolute;
       top: 0;
       left: 0;
       z-index: 2;
-    }
-    button {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      padding: 10px 20px;
-      font-size: 18px;
-      z-index: 10;
     }
     .scoreboard {
       position: absolute;
@@ -42,11 +37,21 @@
       font-size: 16px;
       z-index: 3;
     }
+    .start-btn {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 18px;
+      z-index: 10;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <div id="ytbg"></div>
-  <button onclick="startGame()">▶ Start Game</button>
+  <video id="bgVideo" src="Sonic Youth - Sugar Kane.mp4" muted></video>
+  <button class="start-btn" onclick="startGame()">▶ Start Game</button>
   <div class="scoreboard">
     Score: <span id="score">0</span><br>
     Combo: <span id="combo">0</span>
@@ -54,46 +59,18 @@
   <canvas id="gameCanvas" width="600" height="600"></canvas>
 
   <script>
-    let tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    document.body.appendChild(tag);
-
-    let player;
-    let started = false;
-
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('ytbg', {
-        videoId: 'jfKfPfyJRdk',  // ✅ 광고 없고 embed 가능함
-        playerVars: {
-          autoplay: 0,
-          controls: 0,
-          modestbranding: 1,
-          rel: 0,
-          showinfo: 0
-        }
-      });
-    }
-
-    function startGame() {
-      if (!player || !player.playVideo) return alert("영상 로딩 중입니다. 잠시 후 다시 시도해주세요.");
-      player.playVideo();
-      started = true;
-      document.querySelector("button").style.display = "none";
-      requestAnimationFrame(loop);
-    }
-
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+    const video = document.getElementById("bgVideo");
 
     const noteCols = [60, 180, 300, 420];
-    const keys = ['a', 's', 'k', 'l'];
+    const keys = ['A', 'S', 'K', 'L'];
     const hitY = canvas.height - 40;
     const noteSpeed = 200;
 
+    let score = 0, combo = 0;
     const scoreEl = document.getElementById("score");
     const comboEl = document.getElementById("combo");
-
-    let score = 0, combo = 0;
 
     const noteTimings = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
     const noteData = noteTimings.map((t, i) => ({
@@ -104,17 +81,25 @@
 
     function drawHitZones() {
       ctx.fillStyle = 'white';
+      ctx.globalAlpha = 0.3;
       noteCols.forEach(x => ctx.fillRect(x, hitY, 60, 10));
+      ctx.globalAlpha = 1;
     }
 
     function drawNotes(currentTime) {
-      ctx.fillStyle = '#ff4444';
+      ctx.font = "16px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ff5555";
       noteData.forEach(note => {
         if (note.hit) return;
         const elapsed = currentTime - note.time;
         const y = elapsed * noteSpeed;
         if (y > -20 && y < canvas.height) {
-          ctx.fillRect(noteCols[note.lane], y, 60, 20);
+          const x = noteCols[note.lane];
+          ctx.fillRect(x, y, 60, 20);
+          ctx.fillStyle = "white";
+          ctx.fillText(keys[note.lane], x + 30, y + 15);
+          ctx.fillStyle = "#ff5555";
           note.y = y;
         }
         if (y > canvas.height + 20) {
@@ -124,9 +109,9 @@
       });
     }
 
-    function checkHit(key) {
-      const lane = keys.indexOf(key);
-      const currentTime = player.getCurrentTime();
+    function checkHit(keyPressed) {
+      const lane = keys.indexOf(keyPressed.toUpperCase());
+      const currentTime = video.currentTime;
       for (let note of noteData) {
         if (!note.hit && note.lane === lane) {
           const dt = currentTime - note.time;
@@ -146,20 +131,23 @@
     }
 
     document.addEventListener("keydown", e => {
-      if (!started) return;
-      if (keys.includes(e.key)) {
-        checkHit(e.key);
-      }
+      if (!video.paused) checkHit(e.key);
     });
 
     function loop() {
-      const time = player.getCurrentTime();
+      const time = video.currentTime;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawHitZones();
       drawNotes(time);
       requestAnimationFrame(loop);
     }
+
+    function startGame() {
+      document.querySelector(".start-btn").style.display = "none";
+      video.currentTime = 0;
+      video.play();
+      requestAnimationFrame(loop);
+    }
   </script>
 </body>
 </html>
-

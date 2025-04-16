@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sonic Youth - Rhythm Game</title>
+  <meta charset="UTF-8">
+  <title>Rhythm Game - Test OK</title>
   <style>
     html, body {
       margin: 0;
-      padding: 0;
       background: black;
       overflow: hidden;
     }
@@ -17,23 +15,14 @@
       width: 100vw;
       height: 100vh;
       z-index: -1;
-      filter: grayscale(1) contrast(1.3) brightness(0.8);
       pointer-events: none;
+      filter: grayscale(1) contrast(1.3) brightness(0.8);
     }
     canvas {
       position: absolute;
       top: 0;
       left: 0;
       z-index: 2;
-    }
-    .scoreboard {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      font-family: monospace;
-      font-size: 16px;
-      z-index: 3;
     }
     button {
       position: absolute;
@@ -43,7 +32,15 @@
       padding: 10px 20px;
       font-size: 18px;
       z-index: 10;
-      cursor: pointer;
+    }
+    .scoreboard {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-family: monospace;
+      font-size: 16px;
+      z-index: 3;
     }
   </style>
 </head>
@@ -62,18 +59,15 @@
     document.body.appendChild(tag);
 
     let player;
-    let gameStarted = false;
+    let started = false;
 
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('ytbg', {
-        videoId: 'jfKfPfyJRdk', // 테스트용 광고 없는 배경음악 (임시)
+        videoId: 'jfKfPfyJRdk',  // ✅ 광고 없고 embed 가능함
         playerVars: {
           autoplay: 0,
           controls: 0,
-          disablekb: 1,
           modestbranding: 1,
-          playsinline: 1,
-          loop: 1,
           rel: 0,
           showinfo: 0
         }
@@ -81,29 +75,27 @@
     }
 
     function startGame() {
-      document.querySelector("button").style.display = "none";
-      player.unMute();
+      if (!player || !player.playVideo) return alert("영상 로딩 중입니다. 잠시 후 다시 시도해주세요.");
       player.playVideo();
-      gameStarted = true;
+      started = true;
+      document.querySelector("button").style.display = "none";
       requestAnimationFrame(loop);
     }
 
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+
     const noteCols = [60, 180, 300, 420];
     const keys = ['a', 's', 'k', 'l'];
-    const scoreDisplay = document.getElementById("score");
-    const comboDisplay = document.getElementById("combo");
-
-    let score = 0;
-    let combo = 0;
     const hitY = canvas.height - 40;
+    const noteSpeed = 200;
 
-    const noteTimings = [
-      2.0, 2.5, 3.0, 3.5, 4.5, 5.0, 5.5, 6.0,
-      8.0, 8.5, 9.0, 9.5, 10.5, 11.0, 11.5, 12.0
-    ];
+    const scoreEl = document.getElementById("score");
+    const comboEl = document.getElementById("combo");
 
+    let score = 0, combo = 0;
+
+    const noteTimings = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
     const noteData = noteTimings.map((t, i) => ({
       time: t,
       lane: i % 4,
@@ -116,18 +108,18 @@
     }
 
     function drawNotes(currentTime) {
-      ctx.fillStyle = '#eee';
+      ctx.fillStyle = '#ff4444';
       noteData.forEach(note => {
         if (note.hit) return;
-        const dt = currentTime - note.time;
-        const y = dt * 200;
-        if (y > canvas.height + 20) {
-          note.hit = true;
-          combo = 0;
-        }
+        const elapsed = currentTime - note.time;
+        const y = elapsed * noteSpeed;
         if (y > -20 && y < canvas.height) {
           ctx.fillRect(noteCols[note.lane], y, 60, 20);
           note.y = y;
+        }
+        if (y > canvas.height + 20) {
+          note.hit = true;
+          combo = 0;
         }
       });
     }
@@ -138,35 +130,36 @@
       for (let note of noteData) {
         if (!note.hit && note.lane === lane) {
           const dt = currentTime - note.time;
-          const y = dt * 200;
+          const y = dt * noteSpeed;
           if (Math.abs(y - hitY) < 30) {
             note.hit = true;
             score += 100;
             combo += 1;
-            scoreDisplay.textContent = score;
-            comboDisplay.textContent = combo;
+            scoreEl.textContent = score;
+            comboEl.textContent = combo;
             return;
           }
         }
       }
       combo = 0;
-      comboDisplay.textContent = combo;
+      comboEl.textContent = combo;
     }
 
-    document.addEventListener("keydown", (e) => {
-      if (gameStarted && keys.includes(e.key)) {
+    document.addEventListener("keydown", e => {
+      if (!started) return;
+      if (keys.includes(e.key)) {
         checkHit(e.key);
       }
     });
 
     function loop() {
-      if (!gameStarted) return;
-      const currentTime = player ? player.getCurrentTime() : 0;
+      const time = player.getCurrentTime();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawHitZones();
-      drawNotes(currentTime);
+      drawNotes(time);
       requestAnimationFrame(loop);
     }
   </script>
 </body>
 </html>
+

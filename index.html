@@ -1,1 +1,197 @@
-<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Mid Demo</title></head><body><h1>Placeholder - Load full version</h1></body></html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sugar Kane Rhythm Game - Mid Fixed</title>
+  <style>
+    html, body { margin: 0; background: black; overflow: hidden; }
+    video {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      object-fit: cover;
+      z-index: -1;
+      filter: grayscale(1) contrast(1.2) brightness(0.8);
+    }
+    canvas {
+      position: absolute;
+      top: 0; left: 0;
+      z-index: 2;
+    }
+    .scoreboard {
+      position: absolute;
+      top: 10px; left: 10px;
+      color: white;
+      font-family: monospace;
+      font-size: 16px;
+      z-index: 3;
+    }
+    .start-btn {
+      position: absolute;
+      top: 20px; left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 18px;
+      z-index: 10;
+      cursor: pointer;
+    }
+    .volume-control {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 4;
+      background: rgba(0,0,0,0.4);
+      padding: 5px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <video id="bgVideo" src="Sonic Youth - Sugar Kane.mp4"></video>
+  <audio id="hitSound" src="hit.wav"></audio>
+  <button class="start-btn" onclick="startGame()">▶ Start Game</button>
+  <div class="volume-control">
+    🔉 Volume:
+    <input type="range" id="volume" min="0" max="1" step="0.01" value="0.3" />
+  </div>
+  <div class="scoreboard">
+    Score: <span id="score">0</span><br>
+    Combo: <span id="combo">0</span>
+  </div>
+  <canvas id="gameCanvas" width="600" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const video = document.getElementById("bgVideo");
+    const hitSound = document.getElementById("hitSound");
+    const volumeSlider = document.getElementById("volume");
+
+    const noteCols = [60, 180, 300, 420];
+    const keys = ['A', 'S', 'K', 'L'];
+    const hitY = canvas.height - 40;
+    const noteSpeed = 200;
+
+    let score = 0, combo = 0;
+    const scoreEl = document.getElementById("score");
+    const comboEl = document.getElementById("combo");
+
+    let lastHitFeedback = null;
+    let feedbackTimer = 0;
+
+    const noteTimings = [];
+    for (let t = 2.0; t < 160.0; t += 0.75) {
+      noteTimings.push(t);
+    }
+    const noteData = noteTimings.map((t, i) => ({
+      time: t,
+      lane: i % 4,
+      hit: false
+    }));
+
+    function drawHitZones() {
+      ctx.fillStyle = 'white';
+      ctx.globalAlpha = 0.3;
+      noteCols.forEach(x => ctx.fillRect(x, hitY, 60, 10));
+      ctx.globalAlpha = 1;
+    }
+
+    function drawNotes(currentTime) {
+      ctx.font = "16px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ff5555";
+      noteData.forEach(note => {
+        if (note.hit) return;
+        const elapsed = currentTime - note.time;
+        const y = elapsed * noteSpeed;
+        if (y > -20 && y < canvas.height) {
+          const x = noteCols[note.lane];
+          ctx.fillRect(x, y, 60, 20);
+          ctx.fillStyle = "white";
+          ctx.fillText(keys[note.lane], x + 30, y + 15);
+          ctx.fillStyle = "#ff5555";
+          note.y = y;
+        }
+        if (y > canvas.height + 20) {
+          note.hit = true;
+          combo = 0;
+        }
+      });
+    }
+
+    function drawFeedback() {
+      if (lastHitFeedback && feedbackTimer > 0) {
+        ctx.font = "24px monospace";
+        ctx.fillStyle = lastHitFeedback.textColor;
+        ctx.fillText(lastHitFeedback.text, canvas.width / 2, 100);
+        feedbackTimer--;
+      }
+    }
+
+    function checkHit(keyPressed) {
+      const lane = keys.indexOf(keyPressed.toUpperCase());
+      const currentTime = video.currentTime;
+      for (let note of noteData) {
+        if (!note.hit && note.lane === lane) {
+          const dt = currentTime - note.time;
+          const y = dt * noteSpeed;
+          const accuracy = Math.abs(y - hitY);
+          if (accuracy < 20) {
+            note.hit = true;
+            score += 100;
+            combo += 1;
+            lastHitFeedback = { text: "PERFECT", textColor: "lime" };
+            feedbackTimer = 20;
+          } else if (accuracy < 40) {
+            note.hit = true;
+            score += 50;
+            combo += 1;
+            lastHitFeedback = { text: "GOOD", textColor: "yellow" };
+            feedbackTimer = 20;
+          } else if (accuracy < 60) {
+            note.hit = true;
+            score += 20;
+            combo = 0;
+            lastHitFeedback = { text: "BAD", textColor: "orange" };
+            feedbackTimer = 20;
+          } else {
+            continue;
+          }
+          scoreEl.textContent = score;
+          comboEl.textContent = combo;
+          hitSound.currentTime = 0;
+          hitSound.play();
+          return;
+        }
+      }
+    }
+
+    document.addEventListener("keydown", e => {
+      if (!video.paused) checkHit(e.key);
+    });
+
+    function loop() {
+      const time = video.currentTime;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawHitZones();
+      drawNotes(time);
+      drawFeedback();
+      requestAnimationFrame(loop);
+    }
+
+    function startGame() {
+      document.querySelector(".start-btn").style.display = "none";
+      video.currentTime = 0;
+      video.muted = false;
+      video.play();
+      requestAnimationFrame(loop);
+    }
+
+    volumeSlider.addEventListener("input", () => {
+      hitSound.volume = volumeSlider.value;
+    });
+    hitSound.volume = 0.3; // 초기 볼륨
+  </script>
+</body>
+</html>

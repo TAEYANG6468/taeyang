@@ -2,35 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sugar Kane Rhythm Game - Test v1</title>
+  <title>Sugar Kane Rhythm Game - Effect v2</title>
   <style>
-    body { margin: 0; background: black; color: white; overflow: hidden; font-family: monospace; }
+    body { margin: 0; background: black; overflow: hidden; font-family: monospace; }
     canvas { display: block; margin: auto; background: #111; }
     #score { position: absolute; top: 10px; left: 10px; font-size: 20px; color: white; }
-    video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; filter: grayscale(1); }
     #startBtn { position: absolute; top: 20px; right: 20px; z-index: 10; font-size: 18px; }
+    #effectText {
+      position: absolute;
+      left: 50%;
+      top: 40%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 48px;
+      font-weight: bold;
+      text-shadow: 0 0 10px white;
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
+      pointer-events: none;
+      z-index: 20;
+    }
   </style>
 </head>
 <body>
 
-<video id="bgVideo">
+<video id="bgVideo" muted loop style="position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; filter: grayscale(1);">
   <source src="Sugar Kane - Sonic Youth.mp4" type="video/mp4">
 </video>
 
 <canvas id="gameCanvas" width="600" height="700"></canvas>
 <div id="score">Score: 0</div>
+<div id="effectText">HIT!</div>
 <button id="startBtn" onclick="startGame()">▶ Start</button>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const video = document.getElementById("bgVideo");
+const effectText = document.getElementById("effectText");
 const keys = ['a', 's', 'd', 'k', 'l'];
 const keyX = { a: 80, s: 180, d: 280, k: 380, l: 480 };
 let notes = [], score = 0;
 let gameStarted = false;
 const hitSound = new Audio("hit.wav");
-hitSound.volume = 0.5;
+hitSound.volume = 0.4;
 
 for (let i = 0; i < 20; i++) {
   const key = keys[i % keys.length];
@@ -42,6 +57,21 @@ let startTime = null;
 
 function updateScore() {
   document.getElementById("score").textContent = `Score: ${score}`;
+}
+
+function showEffectText(text) {
+  effectText.textContent = text;
+  effectText.style.opacity = 1;
+  setTimeout(() => {
+    effectText.style.opacity = 0;
+  }, 300);
+}
+
+function flashBackground() {
+  document.body.style.backgroundColor = "white";
+  setTimeout(() => {
+    document.body.style.backgroundColor = "black";
+  }, 80);
 }
 
 function drawHitLine() {
@@ -70,7 +100,7 @@ document.addEventListener("keydown", e => {
   if (!keys.includes(key)) return;
   const currentTime = (performance.now() - startTime) / 1000;
   for (let note of notes) {
-    if (note.hit || note.key !== key) continue;
+    if (note.hit || note.key != key) continue;
     const y = canvas.height - ((note.time - currentTime) * 300);
     const diff = Math.abs(y - (canvas.height - 100));
     if (diff < 50) {
@@ -79,6 +109,8 @@ document.addEventListener("keydown", e => {
       updateScore();
       hitSound.currentTime = 0;
       hitSound.play().catch(() => {});
+      flashBackground();
+      showEffectText("HIT!");
       break;
     }
   }
@@ -106,3 +138,4 @@ updateScore();
 </script>
 </body>
 </html>
+

@@ -1,45 +1,51 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Sugar Kane Rhythm Game</title>
+  <title>Sugar Kane Rhythm Game - Fixed</title>
   <style>
     body {
       margin: 0;
       background: black;
-      overflow: hidden;
+      color: white;
       font-family: monospace;
+      overflow: hidden;
     }
     canvas {
       background: #111;
       display: block;
-      margin: auto;
-      margin-top: 30px;
+      margin: 50px auto 0 auto;
     }
     .ui {
       position: absolute;
       top: 10px;
       right: 10px;
-      background: rgba(0,0,0,0.5);
+      background: rgba(0,0,0,0.7);
       padding: 10px;
       border-radius: 6px;
-      color: white;
     }
-    .ui input, .ui textarea {
-      width: 120px;
-      margin-top: 5px;
+    .ui input, .ui textarea, .ui button {
+      width: 100%;
+      margin-top: 6px;
+    }
+    .start-btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 16px;
+      padding: 6px 12px;
     }
   </style>
 </head>
 <body>
+  <button class="start-btn" onclick="startGame()">▶ Start Game</button>
   <canvas id="gameCanvas" width="600" height="700"></canvas>
   <div class="ui">
-    <label>Volume:</label>
-    <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5"><br>
-    <label>Judge:</label>
-    <input type="range" id="judge" min="10" max="150" value="50"><br>
-    <button onclick="togglePause()">⏸ Pause</button><br>
-    <textarea id="commentBox" placeholder="Leave comment..."></textarea><br>
+    Volume:<input type="range" id="volume" min="0" max="1" step="0.01" value="0.5">
+    Judge:<input type="range" id="judge" min="10" max="150" value="50">
+    <button onclick="togglePause()">⏸ Pause</button>
+    <textarea id="commentBox" placeholder="Leave comment..."></textarea>
     <button onclick="saveComment()">💬 Save</button>
   </div>
 
@@ -48,27 +54,22 @@
     const ctx = canvas.getContext("2d");
     const volumeSlider = document.getElementById("volume");
     const judgeSlider = document.getElementById("judge");
+    const hitLineY = canvas.height - 100;
+    const keys = ['a', 's', 'd', 'k', 'l'];
+    const keyPositions = {'a': 100, 's': 180, 'd': 260, 'k': 340, 'l': 420};
 
     let isPaused = false;
     let startTime = null;
-    const speed = 300; // pixels per second
-    const hitLineY = canvas.height - 100;
+    let gameStarted = false;
     const notes = [];
 
-    const keys = ['a', 's', 'd', 'k', 'l'];
-    const keyPositions = {
-      'a': 100, 's': 180, 'd': 260, 'k': 340, 'l': 420
-    };
-
-    // Generate some notes for demo
-    for (let i = 0; i < 50; i++) {
-      const time = 1.5 + i * 0.6;
+    for (let i = 0; i < 40; i++) {
+      const time = 2 + i * 0.6;
       const key = keys[i % keys.length];
       notes.push({ time, key, hit: false });
     }
 
-    const hitSound = new Audio();
-    hitSound.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YRAAAAAA"; // short click sound
+    const hitSound = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YRAAAAAA");
     hitSound.volume = volumeSlider.value;
 
     volumeSlider.addEventListener("input", () => {
@@ -88,17 +89,16 @@
     }
 
     document.addEventListener("keydown", (e) => {
+      if (!gameStarted) return;
       const currentTime = (performance.now() - startTime) / 1000;
       const judge = parseInt(judgeSlider.value);
-
       notes.forEach(note => {
         if (!note.hit && note.key === e.key) {
-          const y = (note.time - currentTime) * speed;
+          const y = (note.time - currentTime) * 300;
           if (Math.abs(y - hitLineY) < judge) {
             note.hit = true;
             hitSound.currentTime = 0;
             hitSound.play();
-            console.log("HIT!");
           }
         }
       });
@@ -110,7 +110,6 @@
       ctx.moveTo(0, hitLineY);
       ctx.lineTo(canvas.width, hitLineY);
       ctx.stroke();
-
       keys.forEach(k => {
         ctx.fillStyle = "white";
         ctx.fillRect(keyPositions[k], hitLineY, 40, 10);
@@ -121,34 +120,31 @@
       notes.forEach(note => {
         if (note.hit) return;
         const x = keyPositions[note.key];
-        const y = (note.time - currentTime) * speed;
-
-        if (y > -20 && y < canvas.height) {
+        const y = (note.time - currentTime) * 300;
+        if (y > -30 && y < canvas.height + 30) {
           ctx.fillStyle = "lime";
           ctx.fillRect(x, y, 40, 15);
-          note.y = y;
         }
       });
     }
 
+    function startGame() {
+      if (gameStarted) return;
+      gameStarted = true;
+      startTime = performance.now();
+      requestAnimationFrame(gameLoop);
+    }
+
     function gameLoop(timestamp) {
-      if (!startTime) startTime = timestamp;
+      if (!startTime) return;
       const currentTime = (timestamp - startTime) / 1000;
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       if (!isPaused) {
         drawHitLine();
         drawNotes(currentTime);
       }
-
       requestAnimationFrame(gameLoop);
     }
-
-    requestAnimationFrame(gameLoop);
   </script>
 </body>
 </html>
-
-
-

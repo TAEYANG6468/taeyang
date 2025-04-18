@@ -1,67 +1,76 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Guitar Hero Style Rhythm Game - Mid Version</title>
+  <meta charset="UTF-8" />
+  <title>Sugar Kane Rhythm Game - Final</title>
   <style>
-    html, body {
+    body {
       margin: 0;
       background: black;
-      overflow: hidden;
+      color: white;
+      font-family: monospace;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
       height: 100vh;
     }
     canvas {
-      display: block;
+      background: #111;
+      border: 2px solid #444;
     }
-    .controls {
+    .ui {
       position: absolute;
       top: 10px;
       right: 10px;
-      z-index: 1000;
-      color: white;
-      font-family: sans-serif;
+      background: rgba(0,0,0,0.6);
+      padding: 10px;
+      border-radius: 5px;
     }
-    .controls label {
+    .ui input, .ui textarea {
       display: block;
+      margin-top: 4px;
+      width: 100%;
     }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <label>Volume <input type="range" id="volume" min="0" max="1" step="0.01" value="0.3" /></label>
-    <label>Judgement Sensitivity <input type="range" id="judge" min="10" max="100" value="40" /></label>
-    <label>Strum Time Window <input type="range" id="strum" min="20" max="300" value="100" /></label>
-    <button onclick="togglePause()">⏸ Pause</button>
-  </div>
   <canvas id="gameCanvas" width="600" height="600"></canvas>
+  <div class="ui">
+    Volume: <input type="range" id="volume" min="0" max="1" step="0.01" value="0.3">
+    Judge: <input type="range" id="judge" min="10" max="100" value="40">
+    <button onclick="togglePause()">⏸ Pause</button>
+    <textarea id="commentBox" rows="2" placeholder="Leave comment..."></textarea>
+    <button onclick="saveComment()">💬 Save Comment</button>
+  </div>
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    const volumeSlider = document.getElementById("volume");
-    const judgeSlider = document.getElementById("judge");
-    const strumSlider = document.getElementById("strum");
-
     let isPaused = false;
-    function togglePause() {
-      isPaused = !isPaused;
-      if (isPaused) console.log("Paused");
-      else console.log("Resumed");
-    }
 
     document.addEventListener("keydown", e => {
       if (e.code === "Space") togglePause();
     });
 
+    function togglePause() {
+      isPaused = !isPaused;
+      console.log(isPaused ? "Paused" : "Resumed");
+    }
+
+    function saveComment() {
+      const comment = document.getElementById("commentBox").value;
+      if (comment.trim()) {
+        localStorage.setItem("sugarKaneComment", comment);
+        alert("Comment saved!");
+      }
+    }
+
     function gameLoop() {
       if (!isPaused) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "lime";
-        ctx.font = "20px monospace";
-        ctx.fillText("Mid Version Running...", 150, 300);
+        ctx.font = "18px monospace";
+        ctx.fillText("🎸 Final Game Running...", 150, 300);
       }
       requestAnimationFrame(gameLoop);
     }

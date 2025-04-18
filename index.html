@@ -1,49 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Sugar Kane Rhythm Game - Audio+Video v3</title>
+  <meta charset="UTF-8" />
+  <title>Sugar Kane Rhythm Game</title>
   <style>
     body { margin: 0; background: black; overflow: hidden; font-family: monospace; }
-    video {
-      position: fixed; top: 0; left: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      z-index: -1;
-      filter: grayscale(1);
-    }
-    canvas {
-      display: block;
-      margin: auto;
-      position: relative;
-      z-index: 1;
-      background: rgba(0, 0, 0, 0.2);
-    }
-    #score {
-      position: absolute;
-      top: 10px; left: 10px;
-      font-size: 20px; color: white; z-index: 2;
-    }
-    #startBtn {
-      position: absolute;
-      top: 20px; right: 20px;
-      z-index: 2; font-size: 18px;
-    }
+    canvas { display: block; margin: auto; background: rgba(0, 0, 0, 0.3); position: relative; z-index: 2; }
+    #score { position: absolute; top: 10px; left: 10px; color: white; z-index: 3; }
+    #startBtn { position: absolute; top: 20px; right: 20px; z-index: 3; }
     #effectText {
       position: absolute;
       left: 50%; top: 40%;
       transform: translate(-50%, -50%);
       color: white; font-size: 48px;
-      font-weight: bold; text-shadow: 0 0 10px white;
-      opacity: 0; transition: opacity 0.3s ease-out;
-      pointer-events: none; z-index: 2;
+      text-shadow: 0 0 10px white;
+      opacity: 0; z-index: 3;
+      transition: opacity 0.3s ease-out;
     }
+    video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; filter: grayscale(1); }
   </style>
 </head>
 <body>
 
 <video id="bgVideo" autoplay muted loop playsinline>
-  <source src="Sugar Kane - Sonic Youth.mp4" type="video/mp4">
+  <source src="Sugar Kane - Sonic Youth.mp4" type="video/mp4" />
 </video>
 
 <audio id="bgMusic" src="Sugar Kane - Sonic Youth.mp3"></audio>
@@ -56,84 +36,59 @@
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-const video = document.getElementById("bgVideo");
 const audio = document.getElementById("bgMusic");
-const effectText = document.getElementById("effectText");
 const keys = ['a', 's', 'd', 'k', 'l'];
 const keyX = { a: 80, s: 180, d: 280, k: 380, l: 480 };
 let notes = [], score = 0;
-let gameStarted = false;
-const hitSound = new Audio("hit_noise.wav");
-hitSound.volume = 0.4;
-
 let keyFlash = { a: 0, s: 0, d: 0, k: 0, l: 0 };
+let gameStarted = false;
+let startTime = null;
 
-for (let i = 0; i < 20; i++) {
-  const key = keys[i % keys.length];
-  const time = 2 + i * 1.5;
+const hitSound = new Audio("hit_noise.wav");
+hitSound.volume = 0.5;
+
+for (let i = 0; i < 25; i++) {
+  const key = keys[i % 5];
+  const time = 2 + i * 0.8;
   notes.push({ key, time, hit: false });
 }
 
-let startTime = null;
-
 function updateScore() {
-  document.getElementById("score").textContent = `Score: ${score}`;
+  document.getElementById("score").innerText = `Score: ${score}`;
 }
 
 function showEffectText(text) {
-  effectText.textContent = text;
-  effectText.style.opacity = 1;
-  setTimeout(() => { effectText.style.opacity = 0; }, 300);
+  const el = document.getElementById("effectText");
+  el.textContent = text;
+  el.style.opacity = 1;
+  setTimeout(() => el.style.opacity = 0, 300);
 }
 
 function drawHitLine() {
-  ctx.fillStyle = "gray";
-  ctx.fillRect(0, canvas.height - 100, canvas.width, 5);
+  ctx.font = "16px monospace";
   for (let key of keys) {
     if (keyFlash[key] > 0) {
       ctx.fillStyle = `rgba(255,255,255,${keyFlash[key]})`;
-      ctx.fillRect(keyX[key], canvas.height - 100, 40, 5);
+      ctx.fillRect(keyX[key], canvas.height - 100, 40, 10);
       keyFlash[key] -= 0.08;
     } else {
-      ctx.fillStyle = "white";
-      ctx.fillRect(keyX[key], canvas.height - 100, 40, 5);
+      ctx.fillStyle = "gray";
+      ctx.fillRect(keyX[key], canvas.height - 100, 40, 10);
     }
     ctx.fillStyle = "white";
-    ctx.fillText(key.toUpperCase(), keyX[key] + 10, canvas.height - 70);
+    ctx.fillText(key.toUpperCase(), keyX[key] + 12, canvas.height - 70);
   }
 }
 
-function drawNotes(currentTime) {
+function drawNotes(time) {
   for (let note of notes) {
     if (note.hit) continue;
-    const y = canvas.height - ((note.time - currentTime) * 300);
-    if (y > canvas.height || y < -40) continue;
+    const y = canvas.height - ((note.time - time) * 300);
+    if (y < -40 || y > canvas.height + 40) continue;
     ctx.fillStyle = "lime";
     ctx.fillRect(keyX[note.key], y, 40, 20);
   }
 }
-
-document.addEventListener("keydown", e => {
-  if (!gameStarted) return;
-  const key = e.key.toLowerCase();
-  if (!keys.includes(key)) return;
-  const currentTime = (performance.now() - startTime) / 1000;
-  for (let note of notes) {
-    if (note.hit || note.key != key) continue;
-    const y = canvas.height - ((note.time - currentTime) * 300);
-    const diff = Math.abs(y - (canvas.height - 100));
-    if (diff < 50) {
-      note.hit = true;
-      score += 100;
-      updateScore();
-      keyFlash[note.key] = 1;
-      hitSound.currentTime = 0;
-      hitSound.play().catch(() => {});
-      showEffectText("HIT!");
-      break;
-    }
-  }
-});
 
 function gameLoop(timestamp) {
   if (!startTime) startTime = timestamp;
@@ -144,18 +99,36 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
+document.addEventListener("keydown", e => {
+  if (!gameStarted) return;
+  const key = e.key.toLowerCase();
+  if (!keys.includes(key)) return;
+  const time = (performance.now() - startTime) / 1000;
+  for (let note of notes) {
+    if (note.hit || note.key !== key) continue;
+    const y = canvas.height - ((note.time - time) * 300);
+    if (Math.abs(y - (canvas.height - 100)) < 50) {
+      note.hit = true;
+      keyFlash[key] = 1;
+      score += 100;
+      updateScore();
+      hitSound.currentTime = 0;
+      hitSound.play();
+      showEffectText("HIT!");
+      break;
+    }
+  }
+});
+
 function startGame() {
   if (gameStarted) return;
   gameStarted = true;
-  video.currentTime = 0;
-  video.play();
   audio.currentTime = 0;
   audio.play().catch(() => {});
   startTime = performance.now();
   requestAnimationFrame(gameLoop);
 }
-
-updateScore();
 </script>
 </body>
 </html>
+

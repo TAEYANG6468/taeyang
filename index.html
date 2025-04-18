@@ -9,15 +9,12 @@
       background: black;
       color: white;
       font-family: monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
+      overflow: hidden;
     }
     canvas {
-      background: #111;
-      border: 2px solid #444;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
     .ui {
       position: absolute;
@@ -26,15 +23,30 @@
       background: rgba(0,0,0,0.6);
       padding: 10px;
       border-radius: 5px;
+      z-index: 2;
     }
     .ui input, .ui textarea {
       display: block;
       margin-top: 4px;
       width: 100%;
     }
+    video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      z-index: -1;
+      filter: grayscale(1);
+    }
   </style>
 </head>
 <body>
+  <video id="bgVideo" autoplay muted loop playsinline>
+    <source src="Sonic Youth - Sugar Kane.mp4" type="video/mp4">
+  </video>
+
   <canvas id="gameCanvas" width="600" height="600"></canvas>
   <div class="ui">
     Volume: <input type="range" id="volume" min="0" max="1" step="0.01" value="0.3">
@@ -43,9 +55,11 @@
     <textarea id="commentBox" rows="2" placeholder="Leave comment..."></textarea>
     <button onclick="saveComment()">💬 Save Comment</button>
   </div>
+
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
+    const bgVideo = document.getElementById("bgVideo");
     let isPaused = false;
     let volume = 0.3;
     let judgeWindow = 40;
@@ -69,7 +83,11 @@
 
     function togglePause() {
       isPaused = !isPaused;
-      console.log(isPaused ? "Paused" : "Resumed");
+      if (isPaused) {
+        bgVideo.pause();
+      } else {
+        bgVideo.play();
+      }
     }
 
     function saveComment() {
@@ -84,7 +102,6 @@
     const keys = ["KeyA", "KeyS", "KeyD", "KeyK", "KeyL"];
     const notes = [];
 
-    // Regular notes
     for (let i = 0; i < 60; i++) {
       notes.push({
         time: i * 0.75,
@@ -94,7 +111,6 @@
       });
     }
 
-    // Long notes
     for (let i = 0; i < 5; i++) {
       notes.push({
         time: 45 + i * 3,
@@ -146,28 +162,28 @@
 
         notes.forEach(note => {
           if (!note.hit) {
-            const y = (note.time - currentTime) * 200;
+            const speed = 200;
+            const y = (note.time - currentTime) * speed + 100;
             const x = lanes[note.lane];
             if (y > -40 && y < 600) {
               if (note.type === "tap") {
                 ctx.fillStyle = "lime";
                 ctx.fillRect(x, y, 40, 20);
               } else if (note.type === "hold") {
-                const h = note.duration * 200;
+                const h = note.duration * speed;
                 ctx.fillStyle = "yellow";
                 ctx.fillRect(x + 10, y, 20, h);
               }
             }
           }
 
-          // Check long note held
           if (note.type === "hold" && !note.hit) {
             const x = lanes[note.lane];
             const key = keys[note.lane];
             if (holdingKeys.has(key)) {
               const dt = currentTime - note.time;
               if (dt > 0 && dt < note.duration) {
-                ctx.fillStyle = "orange";
+                ctx.strokeStyle = "orange";
                 ctx.beginPath();
                 ctx.arc(x + 20, 550, 30, 0, 2 * Math.PI);
                 ctx.stroke();
@@ -188,219 +204,5 @@
   </script>
 </body>
 </html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Sugar Kane Rhythm Game - Final</title>
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    canvas {
-      background: #111;
-      border: 2px solid #444;
-    }
-    .ui {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0,0,0,0.6);
-      padding: 10px;
-      border-radius: 5px;
-    }
-    .ui input, .ui textarea {
-      display: block;
-      margin-top: 4px;
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <canvas id="gameCanvas" width="600" height="600"></canvas>
-  <div class="ui">
-    Volume: <input type="range" id="volume" min="0" max="1" step="0.01" value="0.3">
-    Judge: <input type="range" id="judge" min="10" max="100" value="40">
-    <button onclick="togglePause()">⏸ Pause</button>
-    <textarea id="commentBox" rows="2" placeholder="Leave comment..."></textarea>
-    <button onclick="saveComment()">💬 Save Comment</button>
-  </div>
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    let isPaused = false;
-    let volume = 0.3;
-    let judgeWindow = 40;
 
-    document.getElementById("volume").addEventListener("input", (e) => {
-      volume = parseFloat(e.target.value);
-    });
 
-    document.getElementById("judge").addEventListener("input", (e) => {
-      judgeWindow = parseInt(e.target.value);
-    });
-
-    document.addEventListener("keydown", e => {
-      if (e.code === "Space") togglePause();
-      if (!isPaused && ["KeyA", "KeyS", "KeyD", "KeyK", "KeyL"].includes(e.code)) checkHit(e.code);
-    });
-
-    function togglePause() {
-      isPaused = !isPaused;
-      console.log(isPaused ? "Paused" : "Resumed");
-    }
-
-    function saveComment() {
-      const comment = document.getElementById("commentBox").value;
-      if (comment.trim()) {
-        localStorage.setItem("sugarKaneComment", comment);
-        alert("Comment saved!");
-      }
-    }
-
-    const lanes = [100, 200, 300, 400, 500];
-    const keys = ["KeyA", "KeyS", "KeyD", "KeyK", "KeyL"];
-    const notes = [];
-
-    for (let i = 0; i < 100; i++) {
-      notes.push({
-        time: i * 1.2,
-        lane: i % 5,
-        hit: false
-      });
-    }
-
-    let startTime = null;
-
-    function checkHit(code) {
-      const laneIndex = keys.indexOf(code);
-      if (laneIndex === -1) return;
-      const currentTime = (performance.now() - startTime) / 1000;
-      for (let note of notes) {
-        if (note.lane === laneIndex && !note.hit) {
-          const dt = Math.abs(note.time - currentTime);
-          if (dt < judgeWindow / 1000) {
-            note.hit = true;
-            console.log("HIT!", dt);
-            return;
-          }
-        }
-      }
-    }
-
-    function gameLoop(timestamp) {
-      if (!startTime) startTime = timestamp;
-      const currentTime = (timestamp - startTime) / 1000;
-
-      if (!isPaused) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "white";
-        lanes.forEach(x => ctx.fillRect(x, 550, 40, 10));
-
-        notes.forEach(note => {
-          if (!note.hit) {
-            const y = (note.time - currentTime) * 200;
-            if (y > -20 && y < 600) {
-              ctx.fillStyle = "lime";
-              ctx.fillRect(lanes[note.lane], y, 40, 20);
-            }
-          }
-        });
-      }
-      requestAnimationFrame(gameLoop);
-    }
-
-    requestAnimationFrame(gameLoop);
-  </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Sugar Kane Rhythm Game - Final</title>
-  <style>
-    body {
-      margin: 0;
-      background: black;
-      color: white;
-      font-family: monospace;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    canvas {
-      background: #111;
-      border: 2px solid #444;
-    }
-    .ui {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: rgba(0,0,0,0.6);
-      padding: 10px;
-      border-radius: 5px;
-    }
-    .ui input, .ui textarea {
-      display: block;
-      margin-top: 4px;
-      width: 100%;
-    }
-  </style>
-</head>
-<body>
-  <canvas id="gameCanvas" width="600" height="600"></canvas>
-  <div class="ui">
-    Volume: <input type="range" id="volume" min="0" max="1" step="0.01" value="0.3">
-    Judge: <input type="range" id="judge" min="10" max="100" value="40">
-    <button onclick="togglePause()">⏸ Pause</button>
-    <textarea id="commentBox" rows="2" placeholder="Leave comment..."></textarea>
-    <button onclick="saveComment()">💬 Save Comment</button>
-  </div>
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    let isPaused = false;
-
-    document.addEventListener("keydown", e => {
-      if (e.code === "Space") togglePause();
-    });
-
-    function togglePause() {
-      isPaused = !isPaused;
-      console.log(isPaused ? "Paused" : "Resumed");
-    }
-
-    function saveComment() {
-      const comment = document.getElementById("commentBox").value;
-      if (comment.trim()) {
-        localStorage.setItem("sugarKaneComment", comment);
-        alert("Comment saved!");
-      }
-    }
-
-    function gameLoop() {
-      if (!isPaused) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "lime";
-        ctx.font = "18px monospace";
-        ctx.fillText("🎸 Final Game Running...", 150, 300);
-      }
-      requestAnimationFrame(gameLoop);
-    }
-
-    gameLoop();
-  </script>
-</body>
-</html>

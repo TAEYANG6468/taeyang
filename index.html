@@ -2,175 +2,116 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sugar Kane Rhythm Game</title>
+  <title>Mini Rhythm Game</title>
   <style>
     body {
       margin: 0;
       background: black;
-      color: white;
-      font-family: monospace;
       overflow: hidden;
+      font-family: monospace;
+      color: white;
     }
     canvas {
+      background: #111;
       display: block;
       margin: auto;
-      background: #111;
     }
-    .ui {
+    #score {
       position: absolute;
       top: 10px;
-      right: 10px;
-      background: rgba(0, 0, 0, 0.7);
-      padding: 10px;
-      border-radius: 6px;
-    }
-    .ui input, .ui button, .ui textarea {
-      margin-top: 5px;
-      width: 100%;
-    }
-    video {
-      position: fixed;
-      top: 0;
-      left: 0;
-      object-fit: cover;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      filter: grayscale(1);
+      left: 10px;
+      font-size: 20px;
     }
   </style>
 </head>
 <body>
 
-<video autoplay muted loop playsinline>
-  <source src="Sugar Kane - Sonic Youth.mp4" type="video/mp4">
-</video>
-
 <canvas id="gameCanvas" width="600" height="700"></canvas>
-<div class="ui">
-  Volume:<input type="range" id="volume" min="0" max="1" step="0.01" value="0.5">
-  Judge:<input type="range" id="judge" min="10" max="150" value="50">
-  <button onclick="togglePause()">⏸ Pause</button>
-  <textarea id="commentBox" placeholder="Leave comment..."></textarea>
-  <button onclick="saveComment()">💬 Save</button>
-  <div id="scoreBox">Score: 0<br>Combo: 0</div>
-</div>
+<div id="score">Score: 0</div>
 
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-const volumeSlider = document.getElementById("volume");
-const judgeSlider = document.getElementById("judge");
-const scoreBox = document.getElementById("scoreBox");
-const hitLineY = canvas.height - 100;
+
 const keys = ['a', 's', 'd', 'k', 'l'];
-const keyPositions = {'a': 100, 's': 180, 'd': 260, 'k': 340, 'l': 420};
-
-let isPaused = false;
-let startTime = null;
-let gameStarted = false;
+const keyX = { a: 80, s: 180, d: 280, k: 380, l: 480 };
+let notes = [];
 let score = 0;
-let combo = 0;
-
-const notes = [];
-for (let i = 0; i < 50; i++) {
-  const time = 2 + i * 0.6;
-  const key = keys[i % keys.length];
-  const long = (i % 7 === 0); // every 7th note is long
-  notes.push({ time, key, hit: false, long: long, duration: long ? 1.5 : 0 });
-}
 
 const hitSound = new Audio("hit.wav");
-hitSound.volume = volumeSlider.value;
+hitSound.volume = 0.5;
 
-volumeSlider.addEventListener("input", () => {
-  hitSound.volume = volumeSlider.value;
-});
-
-function togglePause() {
-  isPaused = !isPaused;
+for (let i = 0; i < 40; i++) {
+  const key = keys[i % keys.length];
+  const time = 2 + i * 0.7;
+  notes.push({ key, time, hit: false });
 }
 
-function saveComment() {
-  const c = document.getElementById("commentBox").value;
-  if (c.trim()) {
-    localStorage.setItem("sugarKaneComment", c);
-    alert("Comment saved!");
-  }
-}
-
-document.addEventListener("keydown", (e) => {
-  if (!gameStarted || isPaused) return;
-  const currentTime = (performance.now() - startTime) / 1000;
-  const judge = parseInt(judgeSlider.value);
-
-  notes.forEach(note => {
-    if (!note.hit && note.key === e.key) {
-      const y = canvas.height - ((note.time - currentTime) * 300);
-      if (Math.abs(y - hitLineY) < judge) {
-        note.hit = true;
-        hitSound.currentTime = 0;
-        hitSound.play().catch(() => {});
-        score += 100;
-        combo++;
-      }
-    }
-  });
-});
+let startTime = null;
 
 function drawHitLine() {
-  ctx.strokeStyle = "gray";
-  ctx.beginPath();
-  ctx.moveTo(0, hitLineY);
-  ctx.lineTo(canvas.width, hitLineY);
-  ctx.stroke();
-  keys.forEach(k => {
-    const x = keyPositions[k];
+  ctx.fillStyle = "gray";
+  ctx.fillRect(0, canvas.height - 100, canvas.width, 5);
+  for (let key of keys) {
     ctx.fillStyle = "white";
-    ctx.fillRect(x, hitLineY, 40, 10);
-    ctx.fillStyle = "gray";
-    ctx.fillText(k.toUpperCase(), x + 13, hitLineY + 25); // 키 이름 표시
-  });
+    ctx.fillRect(keyX[key], canvas.height - 100, 40, 5);
+    ctx.fillText(key.toUpperCase(), keyX[key] + 10, canvas.height - 70);
+  }
 }
 
 function drawNotes(currentTime) {
-  notes.forEach(note => {
-    if (note.hit) return;
-    const x = keyPositions[note.key];
-    const y = canvas.height - ((note.time - currentTime) * 300);
-    if (y > -40 && y < canvas.height + 40) {
-      ctx.fillStyle = note.long ? "yellow" : "lime";
-      if (note.long) {
-        const height = note.duration * 300;
-        ctx.fillRect(x + 10, y, 20, height);
-      } else {
-        ctx.fillRect(x, y, 40, 15);
-      }
-    }
-  });
+  for (let note of notes) {
+    if (note.hit) continue;
+    const y = (note.time - currentTime) * 300;
+    if (y > canvas.height) continue;
+    ctx.fillStyle = "lime";
+    ctx.fillRect(keyX[note.key], y, 40, 20);
+  }
 }
 
-function startGame() {
-  if (gameStarted) return;
-  gameStarted = true;
-  startTime = performance.now();
-  requestAnimationFrame(gameLoop);
+function updateScore() {
+  document.getElementById("score").textContent = `Score: ${score}`;
 }
+
+document.addEventListener("keydown", e => {
+  const key = e.key.toLowerCase();
+  if (!keys.includes(key)) return;
+  console.log("Pressed:", key.toUpperCase());
+
+  const currentTime = (performance.now() - startTime) / 1000;
+
+  for (let note of notes) {
+    if (note.hit || note.key !== key) continue;
+    const y = (note.time - currentTime) * 300;
+    const diff = Math.abs(y - (canvas.height - 100));
+    if (diff < 50) {
+      note.hit = true;
+      score += 100;
+      updateScore();
+      hitSound.currentTime = 0;
+      hitSound.play().catch(() => {});
+      console.log("HIT!");
+      break;
+    }
+  }
+});
 
 function gameLoop(timestamp) {
-  if (!startTime) return;
+  if (!startTime) startTime = timestamp;
   const currentTime = (timestamp - startTime) / 1000;
+
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!isPaused) {
-    drawHitLine();
-    drawNotes(currentTime);
-  }
-  scoreBox.innerHTML = "Score: " + score + "<br>Combo: " + combo;
+  drawHitLine();
+  drawNotes(currentTime);
+
   requestAnimationFrame(gameLoop);
 }
 
-startGame();
+updateScore();
+requestAnimationFrame(gameLoop);
 </script>
+
 </body>
 </html>
+
 

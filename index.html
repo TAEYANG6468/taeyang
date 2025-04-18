@@ -2,201 +2,146 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Sugar Kane Rhythm Game - Final</title>
+  <title>Sugar Kane Rhythm Game</title>
   <style>
     body {
       margin: 0;
       background: black;
-      color: white;
-      font-family: monospace;
       overflow: hidden;
+      font-family: monospace;
     }
     canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
+      background: #111;
+      display: block;
+      margin: auto;
+      margin-top: 30px;
     }
     .ui {
       position: absolute;
       top: 10px;
       right: 10px;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.5);
       padding: 10px;
-      border-radius: 5px;
-      z-index: 2;
+      border-radius: 6px;
+      color: white;
     }
     .ui input, .ui textarea {
-      display: block;
-      margin-top: 4px;
-      width: 100%;
-    }
-    video {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      z-index: -1;
-      filter: grayscale(1);
+      width: 120px;
+      margin-top: 5px;
     }
   </style>
 </head>
 <body>
-  <video id="bgVideo" autoplay muted loop playsinline>
-    <source src="Sonic Youth - Sugar Kane.mp4" type="video/mp4">
-  </video>
-
-  <canvas id="gameCanvas" width="600" height="600"></canvas>
+  <canvas id="gameCanvas" width="600" height="700"></canvas>
   <div class="ui">
-    Volume: <input type="range" id="volume" min="0" max="1" step="0.01" value="0.3">
-    Judge: <input type="range" id="judge" min="10" max="100" value="40">
-    <button onclick="togglePause()">⏸ Pause</button>
-    <textarea id="commentBox" rows="2" placeholder="Leave comment..."></textarea>
-    <button onclick="saveComment()">💬 Save Comment</button>
+    <label>Volume:</label>
+    <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5"><br>
+    <label>Judge:</label>
+    <input type="range" id="judge" min="10" max="150" value="50"><br>
+    <button onclick="togglePause()">⏸ Pause</button><br>
+    <textarea id="commentBox" placeholder="Leave comment..."></textarea><br>
+    <button onclick="saveComment()">💬 Save</button>
   </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    const bgVideo = document.getElementById("bgVideo");
+    const volumeSlider = document.getElementById("volume");
+    const judgeSlider = document.getElementById("judge");
+
     let isPaused = false;
-    let volume = 0.3;
-    let judgeWindow = 40;
+    let startTime = null;
+    const speed = 300; // pixels per second
+    const hitLineY = canvas.height - 100;
+    const notes = [];
 
-    const hitSound = new Audio("hit.wav");
-    hitSound.volume = volume;
+    const keys = ['a', 's', 'd', 'k', 'l'];
+    const keyPositions = {
+      'a': 100, 's': 180, 'd': 260, 'k': 340, 'l': 420
+    };
 
-    document.getElementById("volume").addEventListener("input", (e) => {
-      volume = parseFloat(e.target.value);
-      hitSound.volume = volume;
-    });
+    // Generate some notes for demo
+    for (let i = 0; i < 50; i++) {
+      const time = 1.5 + i * 0.6;
+      const key = keys[i % keys.length];
+      notes.push({ time, key, hit: false });
+    }
 
-    document.getElementById("judge").addEventListener("input", (e) => {
-      judgeWindow = parseInt(e.target.value);
-    });
+    const hitSound = new Audio();
+    hitSound.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YRAAAAAA"; // short click sound
+    hitSound.volume = volumeSlider.value;
 
-    document.addEventListener("keydown", e => {
-      if (e.code === "Space") togglePause();
-      if (!isPaused && ["KeyA", "KeyS", "KeyD", "KeyK", "KeyL"].includes(e.code)) checkHit(e.code);
+    volumeSlider.addEventListener("input", () => {
+      hitSound.volume = volumeSlider.value;
     });
 
     function togglePause() {
       isPaused = !isPaused;
-      if (isPaused) {
-        bgVideo.pause();
-      } else {
-        bgVideo.play();
-      }
     }
 
     function saveComment() {
-      const comment = document.getElementById("commentBox").value;
-      if (comment.trim()) {
-        localStorage.setItem("sugarKaneComment", comment);
+      const c = document.getElementById("commentBox").value;
+      if (c.trim()) {
+        localStorage.setItem("sugarKaneComment", c);
         alert("Comment saved!");
       }
     }
 
-    const lanes = [100, 200, 300, 400, 500];
-    const keys = ["KeyA", "KeyS", "KeyD", "KeyK", "KeyL"];
-    const notes = [];
-
-    for (let i = 0; i < 60; i++) {
-      notes.push({
-        time: i * 0.75,
-        lane: i % 5,
-        type: "tap",
-        hit: false
-      });
-    }
-
-    for (let i = 0; i < 5; i++) {
-      notes.push({
-        time: 45 + i * 3,
-        lane: i,
-        type: "hold",
-        duration: 2,
-        held: false,
-        hit: false
-      });
-    }
-
-    let startTime = null;
-    let holdingKeys = new Set();
-
-    function checkHit(code) {
-      const laneIndex = keys.indexOf(code);
-      if (laneIndex === -1) return;
+    document.addEventListener("keydown", (e) => {
       const currentTime = (performance.now() - startTime) / 1000;
-      for (let note of notes) {
-        if (note.lane === laneIndex && !note.hit && note.type === "tap") {
-          const dt = Math.abs(note.time - currentTime);
-          if (dt < judgeWindow / 1000) {
+      const judge = parseInt(judgeSlider.value);
+
+      notes.forEach(note => {
+        if (!note.hit && note.key === e.key) {
+          const y = (note.time - currentTime) * speed;
+          if (Math.abs(y - hitLineY) < judge) {
             note.hit = true;
             hitSound.currentTime = 0;
             hitSound.play();
-            return;
+            console.log("HIT!");
           }
         }
-      }
+      });
+    });
+
+    function drawHitLine() {
+      ctx.strokeStyle = "gray";
+      ctx.beginPath();
+      ctx.moveTo(0, hitLineY);
+      ctx.lineTo(canvas.width, hitLineY);
+      ctx.stroke();
+
+      keys.forEach(k => {
+        ctx.fillStyle = "white";
+        ctx.fillRect(keyPositions[k], hitLineY, 40, 10);
+      });
     }
 
-    document.addEventListener("keydown", (e) => {
-      if (keys.includes(e.code)) holdingKeys.add(e.code);
-    });
+    function drawNotes(currentTime) {
+      notes.forEach(note => {
+        if (note.hit) return;
+        const x = keyPositions[note.key];
+        const y = (note.time - currentTime) * speed;
 
-    document.addEventListener("keyup", (e) => {
-      if (keys.includes(e.code)) holdingKeys.delete(e.code);
-    });
+        if (y > -20 && y < canvas.height) {
+          ctx.fillStyle = "lime";
+          ctx.fillRect(x, y, 40, 15);
+          note.y = y;
+        }
+      });
+    }
 
     function gameLoop(timestamp) {
       if (!startTime) startTime = timestamp;
       const currentTime = (timestamp - startTime) / 1000;
 
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
       if (!isPaused) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = "white";
-        lanes.forEach(x => ctx.fillRect(x, 550, 40, 10));
-
-        notes.forEach(note => {
-          if (!note.hit) {
-            const speed = 200;
-            const y = (note.time - currentTime) * speed + 100;
-            const x = lanes[note.lane];
-            if (y > -40 && y < 600) {
-              if (note.type === "tap") {
-                ctx.fillStyle = "lime";
-                ctx.fillRect(x, y, 40, 20);
-              } else if (note.type === "hold") {
-                const h = note.duration * speed;
-                ctx.fillStyle = "yellow";
-                ctx.fillRect(x + 10, y, 20, h);
-              }
-            }
-          }
-
-          if (note.type === "hold" && !note.hit) {
-            const x = lanes[note.lane];
-            const key = keys[note.lane];
-            if (holdingKeys.has(key)) {
-              const dt = currentTime - note.time;
-              if (dt > 0 && dt < note.duration) {
-                ctx.strokeStyle = "orange";
-                ctx.beginPath();
-                ctx.arc(x + 20, 550, 30, 0, 2 * Math.PI);
-                ctx.stroke();
-                if (dt > note.duration - 0.1) {
-                  note.hit = true;
-                  hitSound.currentTime = 0;
-                  hitSound.play();
-                }
-              }
-            }
-          }
-        });
+        drawHitLine();
+        drawNotes(currentTime);
       }
+
       requestAnimationFrame(gameLoop);
     }
 
@@ -204,5 +149,6 @@
   </script>
 </body>
 </html>
+
 
 

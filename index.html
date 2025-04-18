@@ -106,11 +106,11 @@ document.addEventListener("keydown", (e) => {
 
   notes.forEach(note => {
     if (!note.hit && note.key === e.key) {
-      const y = (note.time - currentTime) * 300;
+      const y = canvas.height - ((note.time - currentTime) * 300);
       if (Math.abs(y - hitLineY) < judge) {
         note.hit = true;
         hitSound.currentTime = 0;
-        hitSound.play();
+        hitSound.play().catch(() => {});
         score += 100;
         combo++;
       }
@@ -125,8 +125,11 @@ function drawHitLine() {
   ctx.lineTo(canvas.width, hitLineY);
   ctx.stroke();
   keys.forEach(k => {
+    const x = keyPositions[k];
     ctx.fillStyle = "white";
-    ctx.fillRect(keyPositions[k], hitLineY, 40, 10);
+    ctx.fillRect(x, hitLineY, 40, 10);
+    ctx.fillStyle = "gray";
+    ctx.fillText(k.toUpperCase(), x + 13, hitLineY + 25); // 키 이름 표시
   });
 }
 
@@ -134,7 +137,7 @@ function drawNotes(currentTime) {
   notes.forEach(note => {
     if (note.hit) return;
     const x = keyPositions[note.key];
-    const y = (note.time - currentTime) * 300;
+    const y = canvas.height - ((note.time - currentTime) * 300);
     if (y > -40 && y < canvas.height + 40) {
       ctx.fillStyle = note.long ? "yellow" : "lime";
       if (note.long) {
@@ -157,13 +160,11 @@ function startGame() {
 function gameLoop(timestamp) {
   if (!startTime) return;
   const currentTime = (timestamp - startTime) / 1000;
-
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!isPaused) {
     drawHitLine();
     drawNotes(currentTime);
   }
-
   scoreBox.innerHTML = "Score: " + score + "<br>Combo: " + combo;
   requestAnimationFrame(gameLoop);
 }
@@ -172,3 +173,4 @@ startGame();
 </script>
 </body>
 </html>
+
